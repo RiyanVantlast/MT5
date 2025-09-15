@@ -319,28 +319,16 @@
                             <input type="text" id="day" class="form-control" readonly>
                         </div>
                         <div class="form-group">
-                            <label for="profit">Profit</label>
-                            <input type="number" id="profit" class="form-control" placeholder="Masukkan profit">
-                        </div>
-                        <div class="form-group">
-                            <label for="loss">Loss</label>
-                            <input type="number" id="loss" class="form-control" placeholder="Masukkan loss">
+                            <label for="profit-loss">Profit/Loss</label>
+                            <input type="number" id="profit-loss" class="form-control" placeholder="Positif untuk profit, negatif untuk loss" step="0.01">
                         </div>
                         <div class="form-group">
                             <label for="daily-target">Target Harian</label>
-                            <input type="number" id="daily-target" class="form-control" readonly>
-                        </div>
-                        <div class="form-group">
-                            <label for="actual-target">Actual Target</label>
-                            <input type="number" id="actual-target" class="form-control" placeholder="Masukkan actual target">
+                            <input type="number" id="daily-target" class="form-control" readonly step="0.01">
                         </div>
                         <div class="form-group">
                             <label for="monthly-target">Target Perbulan</label>
-                            <input type="number" id="monthly-target" class="form-control" placeholder="Masukkan target bulanan">
-                        </div>
-                        <div class="form-group">
-                            <label for="initial-capital">Modal Awal</label>
-                            <input type="number" id="initial-capital" class="form-control" placeholder="Masukkan modal awal">
+                            <input type="number" id="monthly-target" class="form-control" placeholder="Masukkan target bulanan" step="0.01">
                         </div>
                     </div>
                     <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Simpan Data</button>
@@ -405,6 +393,10 @@
                         <label for="file-path">File Path (optional)</label>
                         <input type="text" id="file-path" class="form-control" placeholder="Path file di repository">
                     </div>
+                    <div class="form-group">
+                        <label for="branch-name">Branch Name (optional)</label>
+                        <input type="text" id="branch-name" class="form-control" placeholder="Nama branch" value="main">
+                    </div>
                     <button type="submit" class="btn btn-success"><i class="fas fa-sync-alt"></i> Simpan Konfigurasi</button>
                 </form>
             </div>
@@ -413,11 +405,14 @@
                 <h2 class="card-title"><i class="fas fa-info-circle"></i> Informasi</h2>
                 <p>Dengan mengkonfigurasi GitHub, data trading akan secara otomatis disinkronisasi ke repository Anda setiap kali disimpan.</p>
                 <p>Pastikan access token memiliki izin untuk mengakses repository.</p>
+                <p>Status: <span id="sync-status">Tidak terkoneksi</span></p>
+                <button class="btn btn-primary" onclick="testGithubConnection()"><i class="fas fa-plug"></i> Test Koneksi</button>
+                <button class="btn btn-primary" onclick="manualSync()"><i class="fas fa-sync"></i> Sinkronisasi Manual</button>
             </div>
         </div>
 
         <footer>
-            <p>© 2023 Trading Performance Dashboard | Dibuat dengan <i class="fas fa-heart" style="color: #e74c3c;"></i></p>
+            <p>© 2025 Trading Performance Dashboard<i class="fas fa-heart" style="color: #e74c3c;"></i></p>
         </footer>
     </div>
 
@@ -429,7 +424,8 @@
             repoOwner: '',
             repoName: '',
             accessToken: '',
-            filePath: 'trading-data.json'
+            filePath: 'trading-data.json',
+            branchName: 'main'
         };
 
         // Fungsi untuk inisialisasi aplikasi
@@ -471,14 +467,13 @@
         function saveTradingData(e) {
             e.preventDefault();
             
+            const profitLossValue = parseFloat(document.getElementById('profit-loss').value) || 0;
+            
             const newData = {
                 date: document.getElementById('day').value,
-                profit: parseFloat(document.getElementById('profit').value) || 0,
-                loss: parseFloat(document.getElementById('loss').value) || 0,
+                profitLoss: profitLossValue,
                 dailyTarget: parseFloat(document.getElementById('daily-target').value) || 0,
-                actualTarget: parseFloat(document.getElementById('actual-target').value) || 0,
                 monthlyTarget: parseFloat(document.getElementById('monthly-target').value) || 0,
-                initialCapital: parseFloat(document.getElementById('initial-capital').value) || 0,
                 timestamp: new Date().getTime()
             };
             
@@ -488,9 +483,7 @@
             updateStats();
             
             // Reset form
-            document.getElementById('profit').value = '';
-            document.getElementById('loss').value = '';
-            document.getElementById('actual-target').value = '';
+            document.getElementById('profit-loss').value = '';
             
             // Sinkronisasi ke GitHub jika dikonfigurasi
             if (githubConfig.accessToken) {
@@ -508,17 +501,15 @@
                 return date.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
             });
             
-            const profits = tradingData.map(data => data.profit);
-            const losses = tradingData.map(data => data.loss);
+            const profitLossValues = tradingData.map(data => data.profitLoss);
             
             profitLossChart.data.labels = dates;
-            profitLossChart.data.datasets[0].data = profits;
-            profitLossChart.data.datasets[1].data = losses;
+            profitLossChart.data.datasets[0].data = profitLossValues;
             profitLossChart.update();
             
             // Data untuk chart Target vs Actual
             const dailyTargets = tradingData.map(data => data.dailyTarget);
-            const actualTargets = tradingData.map(data => data.actualTarget);
+            const actualTargets = tradingData.map(data => data.profitLoss > 0 ? data.profitLoss : 0);
             
             targetActualChart.data.labels = dates;
             targetActualChart.data.datasets[0].data = dailyTargets;
@@ -530,27 +521,22 @@
         function initCharts() {
             const ctx1 = document.getElementById('profit-loss-chart').getContext('2d');
             profitLossChart = new Chart(ctx1, {
-                type: 'line',
+                type: 'bar',
                 data: {
                     labels: [],
                     datasets: [
                         {
-                            label: 'Profit',
+                            label: 'Profit/Loss',
                             data: [],
-                            borderColor: '#2ecc71',
-                            backgroundColor: 'rgba(46, 204, 113, 0.1)',
-                            borderWidth: 2,
-                            fill: true,
-                            tension: 0.3
-                        },
-                        {
-                            label: 'Loss',
-                            data: [],
-                            borderColor: '#e74c3c',
-                            backgroundColor: 'rgba(231, 76, 60, 0.1)',
-                            borderWidth: 2,
-                            fill: true,
-                            tension: 0.3
+                            backgroundColor: function(context) {
+                                const value = context.dataset.data[context.dataIndex];
+                                return value >= 0 ? 'rgba(46, 204, 113, 0.7)' : 'rgba(231, 76, 60, 0.7)';
+                            },
+                            borderColor: function(context) {
+                                const value = context.dataset.data[context.dataIndex];
+                                return value >= 0 ? 'rgba(46, 204, 113, 1)' : 'rgba(231, 76, 60, 1)';
+                            },
+                            borderWidth: 1
                         }
                     ]
                 },
@@ -566,8 +552,11 @@
                             }
                         },
                         tooltip: {
-                            mode: 'index',
-                            intersect: false
+                            callbacks: {
+                                label: function(context) {
+                                    return `Profit/Loss: Rp ${context.raw.toLocaleString('id-ID')}`;
+                                }
+                            }
                         }
                     },
                     scales: {
@@ -596,7 +585,7 @@
                             borderWidth: 1
                         },
                         {
-                            label: 'Actual Target',
+                            label: 'Actual Profit',
                             data: [],
                             backgroundColor: 'rgba(46, 204, 113, 0.7)',
                             borderColor: 'rgba(46, 204, 113, 1)',
@@ -610,7 +599,7 @@
                     plugins: {
                         title: {
                             display: true,
-                            text: 'Target Harian vs Actual',
+                            text: 'Target Harian vs Actual Profit',
                             font: {
                                 size: 16
                             }
@@ -631,12 +620,12 @@
 
         // Fungsi untuk update statistik
         function updateStats() {
-            const totalProfit = tradingData.reduce((sum, data) => sum + data.profit, 0);
-            const totalLoss = tradingData.reduce((sum, data) => sum + data.loss, 0);
+            const totalProfit = tradingData.reduce((sum, data) => sum + (data.profitLoss > 0 ? data.profitLoss : 0), 0);
+            const totalLoss = tradingData.reduce((sum, data) => sum + (data.profitLoss < 0 ? Math.abs(data.profitLoss) : 0), 0);
             const successRate = tradingData.length > 0 ? 
-                (tradingData.filter(data => data.actualTarget >= data.dailyTarget).length / tradingData.length * 100) : 0;
+                (tradingData.filter(data => data.profitLoss >= data.dailyTarget).length / tradingData.length * 100) : 0;
             const avgDaily = tradingData.length > 0 ? 
-                (tradingData.reduce((sum, data) => sum + data.actualTarget, 0) / tradingData.length) : 0;
+                (tradingData.reduce((sum, data) => sum + (data.profitLoss > 0 ? data.profitLoss : 0), 0) / tradingData.length) : 0;
             
             document.getElementById('total-profit').textContent = `Rp ${totalProfit.toLocaleString('id-ID')}`;
             document.getElementById('total-loss').textContent = `Rp ${totalLoss.toLocaleString('id-ID')}`;
@@ -652,7 +641,8 @@
                 repoOwner: document.getElementById('repo-owner').value,
                 repoName: document.getElementById('repo-name').value,
                 accessToken: document.getElementById('access-token').value,
-                filePath: document.getElementById('file-path').value || 'trading-data.json'
+                filePath: document.getElementById('file-path').value || 'trading-data.json',
+                branchName: document.getElementById('branch-name').value || 'main'
             };
             
             localStorage.setItem('githubConfig', JSON.stringify(githubConfig));
@@ -660,15 +650,106 @@
         }
 
         // Fungsi untuk sinkronisasi data ke GitHub
-        function syncToGithub() {
-            // Simulasi sinkronisasi ke GitHub
-            console.log('Menyinkronisasi data ke GitHub...');
-            console.log('Config:', githubConfig);
-            console.log('Data:', tradingData);
+        async function syncToGithub() {
+            const { repoOwner, repoName, accessToken, filePath, branchName } = githubConfig;
             
-            // Dalam implementasi nyata, di sini akan ada kode untuk mengirim data ke GitHub API
-            // menggunakan fetch atau XMLHttpRequest
-            alert('Data berhasil disinkronisasi ke GitHub!');
+            if (!repoOwner || !repoName || !accessToken) {
+                alert('Konfigurasi GitHub belum lengkap!');
+                return;
+            }
+            
+            try {
+                // Encode data to base64
+                const content = JSON.stringify(tradingData);
+                const encodedContent = btoa(unescape(encodeURIComponent(content)));
+                
+                // Check if file exists to get SHA
+                let sha = null;
+                try {
+                    const response = await fetch(`https://api.github.com/repos/${repoOwner}/${repoName}/contents/${filePath}?ref=${branchName}`, {
+                        headers: {
+                            'Authorization': `token ${accessToken}`,
+                            'Accept': 'application/vnd.github.v3+json'
+                        }
+                    });
+                    
+                    if (response.status === 200) {
+                        const fileData = await response.json();
+                        sha = fileData.sha;
+                    }
+                } catch (error) {
+                    console.log('File does not exist or cannot be accessed, will create new one');
+                }
+                
+                // Create or update file
+                const response = await fetch(`https://api.github.com/repos/${repoOwner}/${repoName}/contents/${filePath}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': `token ${accessToken}`,
+                        'Accept': 'application/vnd.github.v3+json',
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        message: 'Update trading data',
+                        content: encodedContent,
+                        sha: sha,
+                        branch: branchName
+                    })
+                });
+                
+                if (response.status === 200 || response.status === 201) {
+                    const data = await response.json();
+                    console.log('Data successfully synced to GitHub:', data);
+                    document.getElementById('sync-status').textContent = 'Tersinkronisasi: ' + new Date().toLocaleTimeString();
+                    alert('Data berhasil disinkronisasi ke GitHub!');
+                } else {
+                    throw new Error('Failed to sync data to GitHub');
+                }
+            } catch (error) {
+                console.error('Error syncing to GitHub:', error);
+                document.getElementById('sync-status').textContent = 'Error: Gagal sinkronisasi';
+                alert('Gagal menyinkronisasi ke GitHub: ' + error.message);
+            }
+        }
+
+        // Fungsi untuk test koneksi GitHub
+        async function testGithubConnection() {
+            const { repoOwner, repoName, accessToken, branchName } = githubConfig;
+            
+            if (!repoOwner || !repoName || !accessToken) {
+                alert('Konfigurasi GitHub belum lengkap!');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`https://api.github.com/repos/${repoOwner}/${repoName}`, {
+                    headers: {
+                        'Authorization': `token ${accessToken}`,
+                        'Accept': 'application/vnd.github.v3+json'
+                    }
+                });
+                
+                if (response.status === 200) {
+                    alert('Koneksi GitHub berhasil! Anda memiliki akses ke repository.');
+                    document.getElementById('sync-status').textContent = 'Terkoneksi';
+                } else {
+                    throw new Error('Cannot access repository');
+                }
+            } catch (error) {
+                console.error('Error testing GitHub connection:', error);
+                alert('Gagal terhubung ke GitHub: ' + error.message);
+                document.getElementById('sync-status').textContent = 'Tidak terkoneksi';
+            }
+        }
+
+        // Fungsi untuk sinkronisasi manual
+        function manualSync() {
+            if (!githubConfig.accessToken) {
+                alert('Silakan konfigurasi GitHub terlebih dahulu!');
+                return;
+            }
+            
+            syncToGithub();
         }
 
         // Fungsi untuk beralih tab
@@ -723,6 +804,7 @@
                 document.getElementById('repo-name').value = githubConfig.repoName;
                 document.getElementById('access-token').value = githubConfig.accessToken;
                 document.getElementById('file-path').value = githubConfig.filePath;
+                document.getElementById('branch-name').value = githubConfig.branchName;
             }
         }
 
