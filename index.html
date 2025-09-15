@@ -555,7 +555,7 @@
                         </div>
                         <div class="form-group">
                             <label for="monthly-target">Target Perbulan</label>
-                            <input type="number" id="monthly-target" class="form-control" placeholder="Masukkan target bulanan" step="0.01" required>
+                            <input type="number" id="monthly-target" class="form-control" value="6000000" readonly step="0.01" required>
                         </div>
                     </div>
                     <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Simpan Data</button>
@@ -701,7 +701,7 @@
                         </div>
                         <div class="form-group">
                             <label for="edit-monthly-target">Target Bulanan</label>
-                            <input type="number" id="edit-monthly-target" class="form-control" step="0.01" required>
+                            <input type="number" id="edit-monthly-target" class="form-control" value="6000000" readonly step="0.01" required>
                         </div>
                     </div>
                     <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Simpan Perubahan</button>
@@ -726,6 +726,9 @@
             branchName: 'main'
         };
 
+        // Konstanta untuk nilai tetap
+        const MONTHLY_TARGET = 6000000;
+
         // Fungsi untuk inisialisasi aplikasi
         function initApp() {
             updateDateTime();
@@ -736,7 +739,8 @@
             
             // Setup event listeners
             document.getElementById('trading-form').addEventListener('submit', saveTradingData);
-            document.getElementById('monthly-target').addEventListener('input', updateDailyTarget);
+            document.getElementById('monthly-target').value = MONTHLY_TARGET;
+            updateDailyTarget();
             document.getElementById('github-form').addEventListener('submit', saveGithubConfig);
             document.getElementById('edit-form').addEventListener('submit', updateTradingData);
             
@@ -763,8 +767,7 @@
 
         // Fungsi untuk update target harian
         function updateDailyTarget() {
-            const monthlyTarget = parseFloat(document.getElementById('monthly-target').value) || 0;
-            const dailyTarget = monthlyTarget / 30;
+            const dailyTarget = MONTHLY_TARGET / 30;
             document.getElementById('daily-target').value = dailyTarget.toFixed(2);
         }
 
@@ -773,10 +776,9 @@
             e.preventDefault();
             
             const profitLossValue = parseFloat(document.getElementById('profit-loss').value) || 0;
-            const monthlyTargetValue = parseFloat(document.getElementById('monthly-target').value) || 0;
             
-            if (isNaN(profitLossValue) || isNaN(monthlyTargetValue)) {
-                alert('Harap isi semua field dengan benar!');
+            if (isNaN(profitLossValue)) {
+                alert('Harap isi field Profit/Loss dengan benar!');
                 return;
             }
             
@@ -785,7 +787,7 @@
                 date: document.getElementById('day').value,
                 profitLoss: profitLossValue,
                 dailyTarget: parseFloat(document.getElementById('daily-target').value) || 0,
-                monthlyTarget: monthlyTargetValue,
+                monthlyTarget: MONTHLY_TARGET,
                 timestamp: new Date().getTime()
             };
             
@@ -797,8 +799,6 @@
             
             // Reset form
             document.getElementById('profit-loss').value = '';
-            document.getElementById('monthly-target').value = '';
-            document.getElementById('daily-target').value = '0';
             
             // Sinkronisasi ke GitHub jika dikonfigurasi
             if (githubConfig.accessToken) {
@@ -919,7 +919,7 @@
                 date: document.getElementById('edit-date').value,
                 profitLoss: parseFloat(document.getElementById('edit-profit-loss').value) || 0,
                 dailyTarget: parseFloat(document.getElementById('edit-daily-target').value) || 0,
-                monthlyTarget: parseFloat(document.getElementById('edit-monthly-target').value) || 0
+                monthlyTarget: MONTHLY_TARGET
             };
             
             saveToLocalStorage();
@@ -1307,6 +1307,9 @@
                 document.getElementById('access-token').value = githubConfig.accessToken || '';
                 document.getElementById('file-path').value = githubConfig.filePath || '';
                 document.getElementById('branch-name').value = githubConfig.branchName || 'main';
+                
+                // Update UI untuk menampilkan status GitHub
+                updateGithubStatusIndicator();
             }
         }
 
