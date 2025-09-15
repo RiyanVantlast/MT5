@@ -102,6 +102,7 @@
             display: flex;
             gap: 10px;
             margin-bottom: 30px;
+            flex-wrap: wrap;
         }
 
         .tab {
@@ -212,6 +213,29 @@
             background: #27ae60;
         }
 
+        .btn-warning {
+            background: var(--warning);
+            color: white;
+        }
+
+        .btn-warning:hover {
+            background: #e67e22;
+        }
+
+        .btn-danger {
+            background: var(--danger);
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #c0392b;
+        }
+
+        .btn-sm {
+            padding: 6px 12px;
+            font-size: 0.875rem;
+        }
+
         .chart-container {
             position: relative;
             height: 400px;
@@ -272,6 +296,114 @@
             color: #ccc;
         }
 
+        /* Table Styles */
+        .table-responsive {
+            overflow-x: auto;
+            margin-bottom: 20px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+
+        th, td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+
+        th {
+            background-color: var(--secondary);
+            color: var(--text);
+            font-weight: 600;
+        }
+
+        tr:hover {
+            background-color: rgba(0, 0, 0, 0.03);
+        }
+
+        .dark-mode tr:hover {
+            background-color: rgba(255, 255, 255, 0.05);
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 8px;
+        }
+
+        .profit-positive {
+            color: var(--success);
+            font-weight: 600;
+        }
+
+        .profit-negative {
+            color: var(--danger);
+            font-weight: 600;
+        }
+
+        .search-box {
+            margin-bottom: 20px;
+            display: flex;
+            gap: 10px;
+        }
+
+        .search-box input {
+            flex: 1;
+            padding: 10px 15px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            background: var(--card-bg);
+            color: var(--text);
+        }
+
+        .no-data {
+            text-align: center;
+            padding: 30px;
+            color: #777;
+            font-style: italic;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0, 0, 0, 0.5);
+        }
+
+        .modal-content {
+            background-color: var(--card-bg);
+            margin: 5% auto;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+            width: 90%;
+            max-width: 600px;
+        }
+
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .close:hover {
+            color: var(--text);
+        }
+
+        .modal-title {
+            margin-bottom: 20px;
+            color: var(--accent);
+        }
+
         @keyframes fadeIn {
             from { opacity: 0; }
             to { opacity: 1; }
@@ -288,6 +420,14 @@
             
             .chart-container {
                 height: 300px;
+            }
+
+            .tabs {
+                flex-direction: column;
+            }
+
+            .action-buttons {
+                flex-direction: column;
             }
         }
     </style>
@@ -306,6 +446,7 @@
 
         <div class="tabs">
             <button class="tab active" onclick="switchTab('dashboard')"><i class="fas fa-home"></i> Dashboard</button>
+            <button class="tab" onclick="switchTab('history')"><i class="fas fa-history"></i> History Trade</button>
             <button class="tab" onclick="switchTab('github')"><i class="fab fa-github"></i> GitHub Config</button>
         </div>
 
@@ -373,6 +514,38 @@
             </div>
         </div>
 
+        <div id="history-tab" class="tab-content">
+            <div class="card">
+                <h2 class="card-title"><i class="fas fa-history"></i> History Trading</h2>
+                
+                <div class="search-box">
+                    <input type="text" id="search-input" placeholder="Cari data trading..." oninput="filterHistory()">
+                    <button class="btn btn-primary" onclick="clearSearch()"><i class="fas fa-times"></i> Clear</button>
+                </div>
+                
+                <div class="table-responsive">
+                    <table id="history-table">
+                        <thead>
+                            <tr>
+                                <th>Tanggal</th>
+                                <th>Profit/Loss</th>
+                                <th>Target Harian</th>
+                                <th>Target Bulanan</th>
+                                <th>Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody id="history-body">
+                            <!-- Data akan diisi oleh JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div id="no-data-message" class="no-data" style="display: none;">
+                    <p>Tidak ada data trading yang tersimpan.</p>
+                </div>
+            </div>
+        </div>
+
         <div id="github-tab" class="tab-content">
             <div class="card github-config">
                 <h2 class="card-title"><i class="fab fa-github"></i> GitHub Configuration</h2>
@@ -411,8 +584,38 @@
             </div>
         </div>
 
+        <!-- Modal Edit -->
+        <div id="edit-modal" class="modal">
+            <div class="modal-content">
+                <span class="close" onclick="closeEditModal()">&times;</span>
+                <h2 class="modal-title"><i class="fas fa-edit"></i> Edit Data Trading</h2>
+                <form id="edit-form">
+                    <input type="hidden" id="edit-id">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="edit-date">Tanggal</label>
+                            <input type="text" id="edit-date" class="form-control">
+                        </div>
+                        <div class="form-group">
+                            <label for="edit-profit-loss">Profit/Loss</label>
+                            <input type="number" id="edit-profit-loss" class="form-control" step="0.01">
+                        </div>
+                        <div class="form-group">
+                            <label for="edit-daily-target">Target Harian</label>
+                            <input type="number" id="edit-daily-target" class="form-control" step="0.01">
+                        </div>
+                        <div class="form-group">
+                            <label for="edit-monthly-target">Target Bulanan</label>
+                            <input type="number" id="edit-monthly-target" class="form-control" step="0.01">
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Simpan Perubahan</button>
+                </form>
+            </div>
+        </div>
+
         <footer>
-            <p>© 2025 Trading Performance Dashboard<i class="fas fa-heart" style="color: #e74c3c;"></i></p>
+            <p>© 2025 Trading Performance Dashboard <i class="fas fa-heart" style="color: #e74c3c;"></i></p>
         </footer>
     </div>
 
@@ -440,12 +643,16 @@
             document.getElementById('trading-form').addEventListener('submit', saveTradingData);
             document.getElementById('monthly-target').addEventListener('input', updateDailyTarget);
             document.getElementById('github-form').addEventListener('submit', saveGithubConfig);
+            document.getElementById('edit-form').addEventListener('submit', updateTradingData);
             
             // Inisialisasi chart
             initCharts();
             
             // Update statistik
             updateStats();
+            
+            // Tampilkan data history
+            renderHistoryTable();
         }
 
         // Fungsi untuk update tanggal dan waktu
@@ -470,6 +677,7 @@
             const profitLossValue = parseFloat(document.getElementById('profit-loss').value) || 0;
             
             const newData = {
+                id: generateId(),
                 date: document.getElementById('day').value,
                 profitLoss: profitLossValue,
                 dailyTarget: parseFloat(document.getElementById('daily-target').value) || 0,
@@ -481,6 +689,7 @@
             saveToLocalStorage();
             updateCharts();
             updateStats();
+            renderHistoryTable();
             
             // Reset form
             document.getElementById('profit-loss').value = '';
@@ -491,6 +700,144 @@
             }
             
             alert('Data trading berhasil disimpan!');
+        }
+
+        // Fungsi untuk generate ID unik
+        function generateId() {
+            return Date.now().toString(36) + Math.random().toString(36).substr(2);
+        }
+
+        // Fungsi untuk render tabel history
+        function renderHistoryTable() {
+            const historyBody = document.getElementById('history-body');
+            const noDataMessage = document.getElementById('no-data-message');
+            
+            if (tradingData.length === 0) {
+                historyBody.innerHTML = '';
+                noDataMessage.style.display = 'block';
+                return;
+            }
+            
+            noDataMessage.style.display = 'none';
+            
+            // Urutkan data berdasarkan timestamp (terbaru di atas)
+            const sortedData = [...tradingData].sort((a, b) => b.timestamp - a.timestamp);
+            
+            let html = '';
+            sortedData.forEach(item => {
+                const profitLossClass = item.profitLoss >= 0 ? 'profit-positive' : 'profit-negative';
+                const profitLossSign = item.profitLoss >= 0 ? '+' : '';
+                
+                html += `
+                    <tr>
+                        <td>${item.date}</td>
+                        <td class="${profitLossClass}">${profitLossSign}${item.profitLoss.toLocaleString('id-ID')}</td>
+                        <td>${item.dailyTarget.toLocaleString('id-ID')}</td>
+                        <td>${item.monthlyTarget.toLocaleString('id-ID')}</td>
+                        <td>
+                            <div class="action-buttons">
+                                <button class="btn btn-warning btn-sm" onclick="openEditModal('${item.id}')">
+                                    <i class="fas fa-edit"></i> Edit
+                                </button>
+                                <button class="btn btn-danger btn-sm" onclick="deleteTradingData('${item.id}')">
+                                    <i class="fas fa-trash"></i> Hapus
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            });
+            
+            historyBody.innerHTML = html;
+        }
+
+        // Fungsi untuk filter history
+        function filterHistory() {
+            const searchTerm = document.getElementById('search-input').value.toLowerCase();
+            const rows = document.getElementById('history-body').getElementsByTagName('tr');
+            
+            for (let i = 0; i < rows.length; i++) {
+                const cells = rows[i].getElementsByTagName('td');
+                let found = false;
+                
+                for (let j = 0; j < cells.length; j++) {
+                    if (cells[j].textContent.toLowerCase().includes(searchTerm)) {
+                        found = true;
+                        break;
+                    }
+                }
+                
+                rows[i].style.display = found ? '' : 'none';
+            }
+        }
+
+        // Fungsi untuk clear search
+        function clearSearch() {
+            document.getElementById('search-input').value = '';
+            filterHistory();
+        }
+
+        // Fungsi untuk membuka modal edit
+        function openEditModal(id) {
+            const data = tradingData.find(item => item.id === id);
+            if (!data) return;
+            
+            document.getElementById('edit-id').value = data.id;
+            document.getElementById('edit-date').value = data.date;
+            document.getElementById('edit-profit-loss').value = data.profitLoss;
+            document.getElementById('edit-daily-target').value = data.dailyTarget;
+            document.getElementById('edit-monthly-target').value = data.monthlyTarget;
+            
+            document.getElementById('edit-modal').style.display = 'block';
+        }
+
+        // Fungsi untuk menutup modal edit
+        function closeEditModal() {
+            document.getElementById('edit-modal').style.display = 'none';
+        }
+
+        // Fungsi untuk update data trading
+        function updateTradingData(e) {
+            e.preventDefault();
+            
+            const id = document.getElementById('edit-id').value;
+            const index = tradingData.findIndex(item => item.id === id);
+            
+            if (index === -1) {
+                alert('Data tidak ditemukan!');
+                return;
+            }
+            
+            tradingData[index] = {
+                ...tradingData[index],
+                date: document.getElementById('edit-date').value,
+                profitLoss: parseFloat(document.getElementById('edit-profit-loss').value) || 0,
+                dailyTarget: parseFloat(document.getElementById('edit-daily-target').value) || 0,
+                monthlyTarget: parseFloat(document.getElementById('edit-monthly-target').value) || 0
+            };
+            
+            saveToLocalStorage();
+            updateCharts();
+            updateStats();
+            renderHistoryTable();
+            closeEditModal();
+            
+            alert('Data trading berhasil diupdate!');
+        }
+
+        // Fungsi untuk menghapus data trading
+        function deleteTradingData(id) {
+            if (!confirm('Apakah Anda yakin ingin menghapus data ini?')) {
+                return;
+            }
+            
+            tradingData = tradingData.filter(item => item.id !== id);
+            saveToLocalStorage();
+            updateCharts();
+            updateStats();
+            renderHistoryTable();
+            
+            alert('Data trading berhasil dihapus!');
         }
 
         // Fungsi untuk update chart
@@ -766,7 +1113,12 @@
             
             // Menandai tab yang aktif
             const tabs = document.querySelectorAll('.tab');
-            const targetTab = Array.from(tabs).find(tab => tab.textContent.includes(tabName === 'dashboard' ? 'Dashboard' : 'GitHub'));
+            const targetTab = Array.from(tabs).find(tab => {
+                if (tabName === 'dashboard') return tab.textContent.includes('Dashboard');
+                if (tabName === 'history') return tab.textContent.includes('History');
+                if (tabName === 'github') return tab.textContent.includes('GitHub');
+            });
+            
             if (targetTab) targetTab.classList.add('active');
         }
 
@@ -805,6 +1157,14 @@
                 document.getElementById('access-token').value = githubConfig.accessToken;
                 document.getElementById('file-path').value = githubConfig.filePath;
                 document.getElementById('branch-name').value = githubConfig.branchName;
+            }
+        }
+
+        // Tutup modal jika klik di luar konten modal
+        window.onclick = function(event) {
+            const modal = document.getElementById('edit-modal');
+            if (event.target == modal) {
+                closeEditModal();
             }
         }
 
